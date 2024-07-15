@@ -38,7 +38,7 @@ app.post("/api/login", async (req, res) => {
             else {
                 res.json({ message: "Wrong password" });
             }
-        } else { 
+        } else {
             res.json({ message: "Account not exist, Try SignUp" });
         }
 
@@ -50,13 +50,27 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/register", async (req, res) => {
     const data = req.body;
-    try {
-        await db.query(
-            "INSERT INTO users_detail (full_name, username,email,password) VALUES ($1, $2,$3,$4)",
-            [data.name, data.username, data.email, data.password]
-        );
-        res.json({ message: "Registraion Done successfully!" });
 
+    try {
+        const returnData = await db.query(
+            "SELECT password FROM users_detail WHERE  email=$1 ;",
+            [data.email]
+        );
+        if (returnData.rows.length > 0) {
+            res.json({ message: "Account already exist, Try Login" });
+        } else {
+            try {
+                await db.query(
+                    "INSERT INTO users_detail (full_name, username,email,password) VALUES ($1, $2,$3,$4)",
+                    [data.name, data.username, data.email, data.password]
+                );
+                res.json({ message: "Registraion Done successfully!" });
+
+            } catch (error) {
+                console.error('Error Registraion:', error);
+                res.status(500).json({ error: 'Internal Server Error' });
+            }
+        }
     } catch (error) {
         console.error('Error Registraion:', error);
         res.status(500).json({ error: 'Internal Server Error' });
