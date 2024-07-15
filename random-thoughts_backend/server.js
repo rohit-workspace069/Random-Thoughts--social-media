@@ -24,13 +24,23 @@ const db = new pg.Client({
 });
 db.connect();
 
-app.post("/api/login", (req, res) => {
+app.post("/api/login", async (req, res) => {
     try {
-        console.log("request made!");
         const { email, password } = req.body;
-        console.log(email);
-        console.log(password);
-        res.json({ message: "Login successful!" });
+        const data = await db.query(
+            "SELECT password FROM users_detail WHERE  email=$1 ;",
+            [email]
+        );
+        if (data.rows.length > 0) {
+            if (data.rows[0].password === password) {
+                res.json({ message: "correct password" });
+            }
+            else {
+                res.json({ message: "Wrong password" });
+            }
+        } else { 
+            res.json({ message: "Account not exist, Try SignUp" });
+        }
 
     } catch (error) {
         console.error('Error Login:', error);
@@ -38,11 +48,13 @@ app.post("/api/login", (req, res) => {
     }
 });
 
-app.post("/api/register", (req, res) => {
+app.post("/api/register", async (req, res) => {
+    const data = req.body;
     try {
-        console.log("registration request made!");
-        const data = req.body;
-        console.log(data);
+        await db.query(
+            "INSERT INTO users_detail (full_name, username,email,password) VALUES ($1, $2,$3,$4)",
+            [data.name, data.username, data.email, data.password]
+        );
         res.json({ message: "Registraion Done successfully!" });
 
     } catch (error) {
