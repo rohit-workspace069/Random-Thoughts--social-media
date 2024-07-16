@@ -24,6 +24,18 @@ const db = new pg.Client({
 });
 db.connect();
 
+app.get("/api/allpost", async (req, res) => {
+    try {
+        const posts = await db.query(
+            "SELECT * FROM public.allpost_detail ;"
+        );
+        res.json(posts.rows);
+    } catch (error) {
+        console.error('Error Getting Post:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 app.post("/api/login", async (req, res) => {
     try {
         const { email, password } = req.body;
