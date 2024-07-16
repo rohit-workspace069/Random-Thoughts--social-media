@@ -1,15 +1,16 @@
 import express from 'express';
 import bodyParser from "body-parser";
 import pg from "pg";
+import bcrypt from "bcrypt";
 import env from "dotenv";
 import cors from 'cors';
 
 
 const app = express();
 app.use(cors());
-
 env.config();
 const port = process.env.PORT;
+const saltRounds = 10;
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -44,16 +45,24 @@ app.post("/api/login", async (req, res) => {
             [email]
         );
         if (data.rows.length > 0) {
-            if (data.rows[0].password === password) {
-                res.json({ message: "correct password" });
-            }
-            else {
-                res.json({ message: "Wrong password" });
-            }
+
+            const user = data.rows[0];
+            const storedHashedPassword = user.password;
+    
+            bcrypt.compare(password, storedHashedPassword, (err, result) => {
+                if (err) {
+                    console.error("Error comparing passwords:", err);
+                } else {
+                    if (result) {
+                        res.json({ message: "correct password" });
+                    } else {
+                        res.json({ message: "Wrong password" });
+                    }
+                }
+            });
         } else {
             res.json({ message: "Account not exist, Try SignUp" });
         }
-
     } catch (error) {
         console.error('Error Login:', error);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -72,11 +81,19 @@ app.post("/api/register", async (req, res) => {
             res.json({ message: "Account already exist, Try Login" });
         } else {
             try {
-                await db.query(
-                    "INSERT INTO users_detail (full_name, username,email,password) VALUES ($1, $2,$3,$4)",
-                    [data.name, data.username, data.email, data.password]
-                );
-                res.json({ message: "Registraion Done successfully!" });
+
+                bcrypt.hash(data.password, saltRounds, async (err, hash) => {
+                    if (err) {
+                        console.error("Error hashing password:", err);
+                    } else {
+                        console.log("Hashed Password:", hash);
+                        await db.query(
+                            "INSERT INTO users_detail (full_name, username,email,password) VALUES ($1, $2,$3,$4)",
+                            [data.name, data.username, data.email, hash]
+                        );
+                        res.json({ message: "Registraion Done successfully!" });
+                    }
+                });
 
             } catch (error) {
                 console.error('Error Registraion:', error);
