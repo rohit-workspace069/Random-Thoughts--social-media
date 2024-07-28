@@ -41,16 +41,89 @@ const db = new pg.Client({
 });
 db.connect();
 
+//API request
+
+app.get("/api/isauth", async (req, res) => {
+  try {
+    if (req.isAuthenticated()) {
+      res.json({ message: "Auth" });
+      console.log(user);
+    } else {
+      res.json({ message: "NotAuth" });
+    }
+    res.json();
+  } catch (error) {
+    console.error("Error Getting Post:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/api/logout", (req, res) => {
+  req.logout(function (err) {
+    if (err) {
+      return next(err);
+    }
+    res.json({ message: "Logout! successfully!" });
+  });
+});
+
+app.post("/api/login", (req, res) => {
+  passport.authenticate("local", (err, user) => {
+    if (err) {
+      if (err === "User not found") {
+        return res.json({ message: "Account not exist, Try SignUp" });
+      }
+      return res.json({ error: "Internal Server Error" });
+    }
+    if (!user) {
+      return res.json({ message: "Wrong password" });
+    }
+    return res.json(user);
+  })(req, res);
+});
+
+app.post("/api/register", async (req, res) => {
+  const usersDetail = req.body;
+  console.log(usersDetail);
+  try {
+    const returnData = await db.query(
+      "SELECT * FROM users_detail WHERE email = $1",
+      [usersDetail.email]
+    );
+    console.log(returnData.rows);
+    if (returnData.rows.length > 0) {
+      res.json({ message: "Account already exist, Try Login" });
+    } else {
+      bcrypt.hash(usersDetail.password, saltRounds, async (err, hash) => {
+        if (err) {
+          console.error("Error hashing password:", err);
+        } else {
+          console.log("Hashed Password:", hash);
+          const result = await db.query(
+            "INSERT INTO users_detail (full_name,email,password) VALUES ($1, $2,$3) RETURNING * ;",
+            [usersDetail.fullname, usersDetail.email, hash]
+          );
+          const user = result.rows[0];
+          req.login(user, (err) => {
+            console.log(" registration success");
+            res.json(user);
+          });
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error Registraion:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 passport.use(
-  new Strategy(async function verify(email, password, cb) {
-    console.log("strategy Called for", email);
-    console.log(password);
+  new Strategy(async function verify(username, password, cb) {
     try {
       const data = await db.query(
         "SELECT * FROM users_detail WHERE  email=$1 ;",
-        [email]
+        [username]
       );
-      console.log(data.rows);
       if (data.rows.length > 0) {
         const user = data.rows[0];
         const storedHashedPassword = user.password;
@@ -58,21 +131,17 @@ passport.use(
         bcrypt.compare(password, storedHashedPassword, (err, valid) => {
           if (err) {
             console.error("Error comparing passwords:", err);
-            console.log("this is point A");
             return cb(err);
           } else {
             if (valid) {
-              console.log("this is point B");
               console.log(user);
               return cb(null, user);
             } else {
-              console.log("this is point C");
               return cb(null, false);
             }
           }
         });
       } else {
-        console.log("this is point D");
         return cb("User not found");
       }
     } catch (err) {
