@@ -43,15 +43,12 @@ db.connect();
 
 //API request
 
-app.get("/api/isauth", async (req, res) => {
+app.get("/api/allpost", async (req, res) => {
   try {
-    if (req.isAuthenticated()) {
-      res.json({ message: "Auth" });
-      console.log(user);
-    } else {
-      res.json({ message: "NotAuth" });
-    }
-    res.json();
+    const posts = await db.query(
+      "SELECT * FROM public.allpost_detail ORDER BY post_id DESC ;"
+    );
+    res.json(posts.rows);
   } catch (error) {
     console.error("Error Getting Post:", error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -98,10 +95,9 @@ app.post("/api/register", async (req, res) => {
         if (err) {
           console.error("Error hashing password:", err);
         } else {
-          console.log("Hashed Password:", hash);
           const result = await db.query(
             "INSERT INTO users_detail (full_name,email,password) VALUES ($1, $2,$3) RETURNING * ;",
-            [usersDetail.fullname, usersDetail.email, hash]
+            [usersDetail.name, usersDetail.email, hash]
           );
           const user = result.rows[0];
           req.login(user, (err) => {
@@ -112,6 +108,22 @@ app.post("/api/register", async (req, res) => {
       });
     }
   } catch (error) {
+    console.error("Error Registraion:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/createpost", async (req, res) => {
+  const postDetail = req.body;
+  console.log(postDetail);
+  try {
+    const result = await db.query(
+      "INSERT INTO allpost_detail (content, username) VALUES ($1, $2) RETURNING *;",
+      [postDetail.content, postDetail.username]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.log("this is point 2");
     console.error("Error Registraion:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
